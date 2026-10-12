@@ -91,11 +91,9 @@ window.OUTFIT_CONFIG = {
 
   // What the pet is wearing on a fresh start. Anything left out starts as None.
   defaults: {
-    top: "top1",
-    topUnderwear: "topunderwear1",
     bottomUnderwear: "bottomunderwear1",
-    bottom: "skirt1",
-    socks: "socks1",
-    shoes: "shoes1",
+    dress: "dress1",
+    hat: "hat1",
   },
+
 };
