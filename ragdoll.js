@@ -750,6 +750,17 @@
             if (blowMask) {
               w.x.globalCompositeOperation = 'destination-out';
               w.x.drawImage(blowMask, 0, 0);
+              // The part of a dress above its waist that sits on the chest goes
+              // with the chest, or the bare chest is drawn over the dress.
+              if (part.offset) {
+                const t = mkRead(CW, CH);
+                t.x.drawImage(blow, 0, 0);
+                t.x.clearRect(0, blowY, CW, CH - blowY);
+                t.x.globalCompositeOperation = 'destination-in';
+                shape(t.x, part.region);
+                w.x.globalCompositeOperation = 'source-over';
+                w.x.drawImage(t.c, 0, 0);
+              }
             }
             if (!armArt && stiff && !part.offset) {
               const t = mkRead(CW, CH);
@@ -783,6 +794,8 @@
               // Cut along the line, not by the skirt's own soft edge, or a
               // faint ghost of its hem stays behind when it lifts.
               t.x.clearRect(0, blowY, CW, CH - blowY);
+              t.x.globalCompositeOperation = 'destination-out';
+              for (const o of regionParts) if (o.offset) shape(t.x, o.region);
               w.x.globalCompositeOperation = 'source-over';
               w.x.drawImage(t.c, 0, 0);
             }
