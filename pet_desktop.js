@@ -127,7 +127,8 @@
     if (!CFGR || !pet.body) return;
     let pending = CFGR.parts.length;
     CFGR.parts.forEach(part => {
-      const im = new Image();
+      let im = new Image();
+      let flat = false;
       const done = (ok) => {
         if (ok) pet.partImgs[part.file] = im;
         if (--pending > 0) return;
@@ -136,8 +137,17 @@
         artRev++;
         requestRedraw();
       };
+      // images/parts/ first; if the files sit directly in images/, use those.
+      const fail = () => {
+        if (flat) { done(false); return; }
+        flat = true;
+        im = new Image();
+        im.onload = () => done(true);
+        im.onerror = fail;
+        im.src = 'images/' + part.file + '.png';
+      };
       im.onload = () => done(true);
-      im.onerror = () => done(false);
+      im.onerror = fail;
       im.src = 'images/parts/' + part.file + '.png';
     });
   }
