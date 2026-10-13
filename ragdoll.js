@@ -53,6 +53,9 @@
 
   const EDGE_BOUNCE = 0.6;        // share of speed a limb keeps bouncing off the side or top of the screen
   const FLOOR_FRICTION = 0.6;     // sideways speed kept per step while touching the floor
+  const JOINT_MAX_SPEED = 1700;   // px/s (default size) a joint may move relative to the box in one step
+  const FLOOR_BOUNCE = 0.3;       // share of its downward speed a limb that lands hard bounces back up with
+  const FLOOR_REST_SPEED = 1.5;   // px/step (at the default size) below which a limb landing just stops
   const FLOOR_SINK = 40;          // px below the floor past which a joint is lifted out with no speed
   const ITERATIONS = 8;
   const STIFF_HELD = 0.012;       // dangling from the cursor
@@ -250,6 +253,7 @@
     }
 
     step(dt) {
+      this.stepNo = (this.stepNo || 0) + 1;
       // Stiffness: collapses at once when grabbed or thrown, climbs back while
       // the pet is on its feet.
       // Back on the floor after going limp: lie there a moment, then get up.
@@ -338,6 +342,19 @@
         this.floor();
       }
       this.pinJoint();
+      // Nothing about a limp body moves faster than a hard fall does. Joint
+      // limits and bones can still jam a joint into a place it can't be, and the
+      // constraints then throw it across the body in a single step (a hand
+      // flicking over the head, a foot whipping up), so the speed of a joint
+      // *relative to the box* is capped; it eases the rest of the way over the
+      // next steps instead of popping.
+      const cap = JOINT_MAX_SPEED * dt * this.k / (250 / 1134);
+      for (const n of ALL) {
+        if (this.pin && this.pin.name === n) continue;
+        const j = this.p[n];
+        const dx = j.x - j.px - bx, dy = j.y - j.py - by, d = Math.hypot(dx, dy);
+        if (d > cap) { const f = cap / d; j.x = j.px + bx + dx * f; j.y = j.py + by + dy * f; }
+      }
       // The arms get the last word: the bones solved after their limit could
       // carry an arm over the head or into the body, and once it was there the
       // limits pulled it the wrong way and the body went spinning.
@@ -560,6 +577,8 @@
       // be. Dragged along the floor, the floor's grip rolled the body round the
       // held point like a wheel, so it spun the whole time it was carried.
       if (this.held) return;
+      const fl = this.stepNo;
+      const rest = FLOOR_REST_SPEED * this.k / (250 / 1134);
       for (const n of ALL) {
         const j = this.p[n];
         const lim = this.floorY - this.rest[n].r;
@@ -567,9 +586,15 @@
           // Deep below the floor (let go of while hanging over the taskbar):
           // lift it out without turning the lift into an upward throw.
           if (j.y - lim > FLOOR_SINK) j.py -= j.y - lim;
+          // How fast it was going down when it hit. A limb that lands hard
+          // bounces a little (a soft joint, the hair or chest, less); a slow
+          // one just stops, so it can lie still instead of buzzing on the floor.
+          const vy = j.y - j.py;
           j.y = lim;
-          // Friction: scrub sideways speed while lying or standing on the floor.
-          j.px = j.x - (j.x - j.px) * FLOOR_FRICTION;
+          if (vy > 0) j.py = lim + (vy > rest ? vy * FLOOR_BOUNCE * (this.rest[n].gs === undefined ? 1 : 0.4) : 0);
+          // Friction: scrub sideways speed while lying or standing on the floor,
+          // once a step however many times the floor was met.
+          if (j.fl !== fl) { j.fl = fl; j.px = j.x - (j.x - j.px) * FLOOR_FRICTION; }
         }
       }
     }
